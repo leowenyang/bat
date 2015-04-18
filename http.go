@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -17,6 +19,7 @@ var defaultSetting = httplib.BeegoHttpSettings{
 	ConnectTimeout:   60 * time.Second,
 	ReadWriteTimeout: 60 * time.Second,
 	Gzip:             true,
+	DumpBody:         true,
 }
 
 func getHTTP(method string, url string, args []string) (r *httplib.BeegoHttpRequest) {
@@ -51,8 +54,7 @@ func getHTTP(method string, url string, args []string) (r *httplib.BeegoHttpRequ
 				jsonmap[strs[0]] = j
 				continue
 			}
-			//@TODO strconv strs[1] to the correct type
-			jsonmap[strs[0]] = strs[1]
+			jsonmap[strs[0]] = toRealType(strs[1])
 			continue
 		}
 		// Headers
@@ -78,7 +80,7 @@ func getHTTP(method string, url string, args []string) (r *httplib.BeegoHttpRequ
 				}
 				strs[1] = string(content)
 			}
-			if form {
+			if form || method == "GET" {
 				r.Param(strs[0], strs[1])
 			} else {
 				jsonmap[strs[0]] = strs[1]
@@ -99,4 +101,26 @@ func getHTTP(method string, url string, args []string) (r *httplib.BeegoHttpRequ
 		r.JsonBody(jsonmap)
 	}
 	return
+}
+
+func formatResponseBody(res *http.Response, httpreq *httplib.BeegoHttpRequest, pretty bool) string {
+	str, err := httpreq.String()
+	if err != nil {
+		log.Fatalln("can't get the url", err)
+	}
+	fmt.Println("")
+	if pretty && strings.Contains(res.Header.Get("Content-Type"), contentJsonRegex) {
+		var output interface{}
+		err = json.Unmarshal([]byte(str), &output)
+		if err != nil {
+			log.Fatal("Response Json Unmarshal", err)
+		}
+		bstr, err := json.MarshalIndent(output, "", "  ")
+		if err != nil {
+			log.Fatal("Response Json MarshalIndent", err)
+		}
+		str = string(bstr)
+	}
+
+	return str
 }

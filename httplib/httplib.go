@@ -52,7 +52,7 @@ import (
 	"time"
 )
 
-var defaultSetting = BeegoHttpSettings{false, "beegoServer", 60 * time.Second, 60 * time.Second, nil, nil, nil, false, true}
+var defaultSetting = BeegoHttpSettings{false, "beegoServer", 60 * time.Second, 60 * time.Second, nil, nil, nil, false, true, true}
 var defaultCookieJar http.CookieJar
 var settingMutex sync.Mutex
 
@@ -130,6 +130,7 @@ type BeegoHttpSettings struct {
 	Transport        http.RoundTripper
 	EnableCookie     bool
 	Gzip             bool
+	DumpBody         bool
 }
 
 // BeegoHttpRequest provides more useful methods for requesting one url than http.Request.
@@ -304,8 +305,8 @@ func (b *BeegoHttpRequest) buildUrl(paramBody string) {
 		return
 	}
 
-	// build POST url and body
-	if b.req.Method == "POST" && b.req.Body == nil {
+	// build POST/PUT/PATCH url and body
+	if (b.req.Method == "POST" || b.req.Method == "PUT" || b.req.Method == "PATCH") && b.req.Body == nil {
 		// with files
 		if len(b.files) > 0 {
 			pr, pw := io.Pipe()
@@ -413,7 +414,7 @@ func (b *BeegoHttpRequest) getResponse() (*http.Response, error) {
 	}
 
 	if b.setting.ShowDebug {
-		dump, err := httputil.DumpRequest(b.req, true)
+		dump, err := httputil.DumpRequest(b.req, b.setting.DumpBody)
 		if err != nil {
 			println(err.Error())
 		}
